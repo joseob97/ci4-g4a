@@ -3,122 +3,45 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
-use Faker\Generator;
-use Myth\Auth\Authorization\GroupModel;
-use Myth\Auth\Entities\User;
 
-/**
- * @method User|null first()
- */
 class UserModel extends Model
 {
-    protected $table          = 'users';
-    protected $primaryKey     = 'id';
-    protected $returnType     = 'App\Entities\User';
-    protected $useSoftDeletes = true;
-    protected $allowedFields  = [
-        'email', 'username', 'password_hash', 'reset_hash', 'reset_at', 'reset_expires', 'activate_hash',
-        'status', 'status_message', 'active', 'force_pass_reset', 'permissions', 'deleted_at',
-    ];
-    protected $useTimestamps   = true;
-    protected $validationRules = [
-        'email'         => 'required|valid_email|is_unique[users.email,id,{id}]',
-        'username'      => 'required|alpha_numeric_punct|min_length[3]|max_length[30]|is_unique[users.username,id,{id}]',
-        'password_hash' => 'required',
-    ];
-    protected $validationMessages = [];
-    protected $skipValidation     = false;
-    protected $afterInsert        = ['addToGroup'];
+    protected $table = 'usuario';  // Asegúrate de que el nombre de la tabla sea correcto
+    protected $primaryKey = 'id_usuario';
+    protected $allowedFields = ['rol', 'alias', 'password', 'correo', 'nombre', 'pais', 'ciudad', 'direccion', 'cod_postal'];
+    protected $returnType = 'array';
 
-    /**
-     * The id of a group to assign.
-     * Set internally by withGroup.
-     *
-     * @var int|null
-     */
-    protected $assignGroup;
+    public function verifyUser($alias, $password)
+{
+    $builder = $this->db->table('usuario');
+    $user = $builder->getWhere(['alias' => $alias, 'password' => $password])->getRowArray();
 
-    /**
-     * Logs a password reset attempt for posterity sake.
-     */
-    public function logResetAttempt(string $email, ?string $token = null, ?string $ipAddress = null, ?string $userAgent = null)
-    {
-        $this->db->table('auth_reset_attempts')->insert([
-            'email'      => $email,
-            'ip_address' => $ipAddress,
-            'user_agent' => $userAgent,
-            'token'      => $token,
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+    if ($user) {
+        return $user;  // Devuelve toda la fila, incluido el rol
+    } else {
+        return false;
     }
+}
 
-    /**
-     * Logs an activation attempt for posterity sake.
-     */
-    public function logActivationAttempt(?string $token = null, ?string $ipAddress = null, ?string $userAgent = null)
+public function deleteRelatedEntities($id)
     {
-        $this->db->table('auth_activation_attempts')->insert([
-            'ip_address' => $ipAddress,
-            'user_agent' => $userAgent,
-            'token'      => $token,
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
-    }
+        $db = db_connect();
 
-    /**
-     * Sets the group to assign any users created.
-     *
-     * @return $this
-     */
-    public function withGroup(string $groupName)
-    {
-        $group = $this->db->table('auth_groups')->where('name', $groupName)->get()->getFirstRow();
+        try {
+            $db->transStart();
 
-        $this->assignGroup = $group->id;
+            $db->table('pedido')->where('id_usuario', $id)->delete();
+            $db->table('tarjeta')->where('id_usuario', $id)->delete();
+            $db->table('descuento')->where('id_usuario', $id)->delete();
 
-        return $this;
-    }
+            $db->transComplete();
 
-    /**
-     * Clears the group to assign to newly created users.
-     *
-     * @return $this
-     */
-    public function clearGroup()
-    {
-        $this->assignGroup = null;
-
-        return $this;
-    }
-
-    /**
-     * If a default role is assigned in Config\Auth, will
-     * add this user to that group. Will do nothing
-     * if the group cannot be found.
-     *
-     * @param mixed $data
-     *
-     * @return mixed
-     */
-    protected function addToGroup($data)
-    {
-        if (is_numeric($this->assignGroup)) {
-            $groupModel = model(GroupModel::class);
-            $groupModel->addUserToGroup($data['id'], $this->assignGroup);
+            return $db->transStatus();
+        } catch (\Exception $e) {
+            // Log the error
+            log_message('error', 'Error en deleteRelatedEntities: ' . $e->getMessage());
+            return false;
         }
-
-        return $data;
     }
 
-    /**
-     * Faked data for Fabricator.
-     */
-    public function fake(Generator &$faker): User
-    {
-        return new User([
-            'email'    => $faker->email,
-            'username' => $faker->userName,
-            'password' => bin2hex(random_bytes(16)),
-        ]);
-    }
 }

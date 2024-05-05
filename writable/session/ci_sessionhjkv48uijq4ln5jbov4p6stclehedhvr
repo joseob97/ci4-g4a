@@ -1,0 +1,1 @@
+__ci_last_regenerate|i:1714930192;_ci_previous_url|s:41:"http://localhost:8080/index.php/games/add";alias|s:5:"admin";rol|s:13:"administrador";isLoggedIn|b:1;error|s:64:"No se pudo añadir el juego. Puede que ya exista o falten datos.";__ci_vars|a:1:{s:5:"error";s:3:"old";}
